@@ -45,6 +45,119 @@
       <p>&copy; 2023 Mergington High School</p>
     </footer>
 
-    <script src="app.js"></script>
+    <script>
+      // Fetch activities and render them with a participants section
+      async function loadActivities() {
+        const res = await fetch('/activities');
+        if (!res.ok) {
+          showMessage('Could not load activities.', 'error');
+          return;
+        }
+        const activities = await res.json();
+        const listEl = document.getElementById('activities-list');
+        const selectEl = document.getElementById('activity');
+        listEl.innerHTML = '';
+
+        Object.keys(activities).forEach((name) => {
+          const a = activities[name];
+
+          // Card container
+          const card = document.createElement('div');
+          card.className = 'activity-card';
+
+          // Title
+          const title = document.createElement('h4');
+          title.textContent = name;
+          card.appendChild(title);
+
+          // Description
+          const desc = document.createElement('p');
+          desc.textContent = a.description;
+          card.appendChild(desc);
+
+          // Schedule & capacity
+          const sched = document.createElement('p');
+          sched.innerHTML = `<strong>Schedule:</strong> ${a.schedule}`;
+          card.appendChild(sched);
+
+          const cap = document.createElement('p');
+          cap.innerHTML = `<strong>Participants:</strong> ${a.participants.length} / ${a.max_participants}`;
+          card.appendChild(cap);
+
+          // Participants list (bulleted, pretty)
+          const participantsWrap = document.createElement('div');
+          participantsWrap.className = 'participants';
+
+          const pHeading = document.createElement('h5');
+          pHeading.textContent = `Participants (${a.participants.length})`;
+          participantsWrap.appendChild(pHeading);
+
+          const ul = document.createElement('ul');
+          if (a.participants.length === 0) {
+            const li = document.createElement('li');
+            li.textContent = 'No participants yet';
+            li.style.color = '#777';
+            ul.appendChild(li);
+          } else {
+            a.participants.forEach((email) => {
+              const li = document.createElement('li');
+              li.textContent = email;
+              ul.appendChild(li);
+            });
+          }
+          participantsWrap.appendChild(ul);
+          card.appendChild(participantsWrap);
+
+          listEl.appendChild(card);
+
+          // Add to select
+          const opt = document.createElement('option');
+          opt.value = name;
+          opt.textContent = name;
+          selectEl.appendChild(opt);
+        });
+      }
+
+      // Show message helper
+      function showMessage(text, type = 'info') {
+        const msg = document.getElementById('message');
+        msg.className = `message ${type}`;
+        msg.textContent = text;
+        msg.classList.remove('hidden');
+        setTimeout(() => msg.classList.add('hidden'), 5000);
+      }
+
+      // Handle signup form submit
+      document.getElementById('signup-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('email').value.trim();
+        const activity = document.getElementById('activity').value;
+        if (!email || !activity) {
+          showMessage('Please provide an email and select an activity.', 'error');
+          return;
+        }
+
+        try {
+          const encodedActivity = encodeURIComponent(activity);
+          const res = await fetch(`/activities/${encodedActivity}/signup?email=${encodeURIComponent(email)}`, {
+            method: 'POST'
+          });
+          if (res.ok) {
+            const body = await res.json();
+            showMessage(body.message, 'success');
+            await loadActivities(); // refresh participants list and counts
+            document.getElementById('signup-form').reset();
+          } else {
+            const err = await res.json();
+            showMessage(err.detail || 'Signup failed', 'error');
+          }
+        } catch (err) {
+          showMessage('Network error while signing up.', 'error');
+        }
+      });
+
+      // Initial load
+      loadActivities();
+    </script>
   </body>
 </html>
